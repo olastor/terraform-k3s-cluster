@@ -110,8 +110,8 @@ resource null_resource "agent_nodes" {
         if local.k3s_env[env_var] != null
       ],
       [
-        "export INSTALL_K3S_EXEC='agent ${local.agent_args[1 + each.key]}'",
-        "export K3S_URL='https://${var.agent_nodes[0]["internal_ip"]}:6443'",
+        "export INSTALL_K3S_EXEC='agent ${local.agent_args[each.key]}'",
+        "export K3S_URL='https://${var.server_nodes[0]["internal_ip"]}:6443'",
         "curl -sfL https://get.k3s.io | K3S_TOKEN='${random_password.k3s_token.result}' sh -"
       ]
     )
