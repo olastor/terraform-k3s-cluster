@@ -23,6 +23,10 @@ locals {
     for server in var.server_nodes:
     replace(replace(var.server_args, "%(connect_ip)", server.connect_ip), "%(internal_ip)", server.internal_ip)
   ]
+  agent_args = [
+    for agent in var.agent_nodes:
+    replace(replace(var.agent_args, "%(connect_ip)", agent.connect_ip), "%(internal_ip)", agent.internal_ip)
+  ]
 }
 
 resource "random_password" "k3s_token" {
@@ -78,6 +82,36 @@ resource null_resource "server_nodes" {
       [
         "export INSTALL_K3S_EXEC='server ${local.server_args[1 + each.key]}'",
         "export K3S_URL='https://${var.server_nodes[0]["internal_ip"]}:6443'",
+        "curl -sfL https://get.k3s.io | K3S_TOKEN='${random_password.k3s_token.result}' sh -"
+      ]
+    )
+  }
+}
+
+resource null_resource "agent_nodes" {
+  depends_on = [null_resource.server_nodes]
+
+  for_each = {
+    for index, agent in var.agent_nodes:
+    index => agent
+  }
+
+  connection {
+    type = "ssh"
+    user = "root"
+    host = each.value.connect_ip
+  }
+
+  provisioner "remote-exec" {
+    inline = concat(
+      [
+        for env_var in keys(local.k3s_env):
+        "export ${env_var}='${local.k3s_env[env_var]}'"
+        if local.k3s_env[env_var] != null
+      ],
+      [
+        "export INSTALL_K3S_EXEC='agent ${local.agent_args[1 + each.key]}'",
+        "export K3S_URL='https://${var.agent_nodes[0]["internal_ip"]}:6443'",
         "curl -sfL https://get.k3s.io | K3S_TOKEN='${random_password.k3s_token.result}' sh -"
       ]
     )
